@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"gocv.io/x/gocv"
 	"image"
+	"image/color"
+	"io/ioutil"
+	"math"
+	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -19,10 +24,10 @@ func (m *Maker) Extend(src gocv.Mat, dst *gocv.Mat) {
 	dstRegion := tmp.Region(dstRect)
 	defer dstRegion.Close()
 	src.CopyTo(&dstRegion)
-	dstRegion.CopyTo(dst)
+	tmp.CopyTo(dst)
 }
 
-func (m *Maker) SplitSrc(src gocv.Mat) []Object {
+func (m *Maker) SplitOneSrc(srcId int, src gocv.Mat) []Object {
 	chns := gocv.Split(src)
 	defer func() {
 		for _, v := range chns {
@@ -47,15 +52,8 @@ func (m *Maker) SplitSrc(src gocv.Mat) []Object {
 	for i := 0; i < contoursNumber; i++ {
 		c := contours.At(i)
 		rect := gocv.BoundingRect(c)
-		rect.Min = tileSize.PointToTilePoint(rect.Min)
-		maxPoint := tileSize.PointToTilePoint(rect.Max)
-		if maxPoint.X < rect.Max.X {
-			maxPoint.X += m.TileSize
-		}
-		if maxPoint.Y < rect.Max.Y {
-			maxPoint.Y += m.TileSize
-		}
-		rect.Max = maxPoint
+		rect.Min = tileSize.PointToTilePoint(rect.Min, floor)
+		rect.Max = tileSize.PointToTilePoint(rect.Max, ceil)
 
 		cols := rect.Dx() / m.TileSize
 		rows := rect.Dy() / m.TileSize
@@ -76,13 +74,23 @@ func (m *Maker) SplitSrc(src gocv.Mat) []Object {
 
 		if !existed {
 			objects = append(objects, Object{
-				Rect: rect,
-				Cols: cols,
-				Rows: rows,
+				Rect:  rect,
+				Cols:  cols,
+				Rows:  rows,
+				SrcId: srcId,
 			})
 		}
 	}
 
+	return objects
+}
+
+func (m *Maker) SplitSrc(src []gocv.Mat) []Object {
+	objects := []Object{}
+
+	for i, one := range src {
+		objects = append(objects, m.SplitOneSrc(i, one)...)
+	}
 	return objects
 }
 
@@ -110,10 +118,67 @@ func (m *Maker) Classify(objects []Object) []*ObjectGroup {
 	return groups
 }
 
+func (m *Maker) Generate(srcNames []string, dstPrefix string) error {
+	srcList := []gocv.Mat{}
+	labelList := []gocv.Mat{}
+	for _, name := range srcNames {
+		src, err := ImRead(name)
+		if err != nil {
+			return err
+		}
+		m.Extend(src, &src)
+		srcList = append(srcList, src)
+		labelList = append(labelList, src.Clone())
+	}
+
+	objects := m.SplitSrc(srcList)
+	groups := m.Classify(objects)
+	dstRoot, _ := filepath.Split(dstPrefix)
+	os.MkdirAll(dstRoot, 0755)
+
+	for _, v := range groups {
+		v.Sort()
+		v.GenerateImage(srcList, labelList, m.TileSize, m.DstCols, dstPrefix)
+	}
+	for i, v := range labelList {
+		_, name := filepath.Split(srcNames[i])
+		err := ImWrite(filepath.Join(dstRoot, name), v)
+
+		if err != nil {
+			return err
+		}
+
+		v.Close()
+		srcList[i].Close()
+	}
+	return nil
+}
+
+func ImRead(name string) (gocv.Mat, error) {
+	buff, err := ioutil.ReadFile(name)
+	if err != nil {
+		return gocv.Mat{}, err
+	}
+	img, err := gocv.IMDecode(buff, gocv.IMReadUnchanged)
+	if err != nil {
+		return gocv.Mat{}, err
+	}
+	return img, nil
+}
+func ImWrite(name string, mat gocv.Mat) error {
+	buff, err := gocv.IMEncode(".png", mat)
+	if err != nil {
+		return err
+	}
+	defer buff.Close()
+	return ioutil.WriteFile(name, buff.GetBytes(), 0644)
+}
+
 type Object struct {
-	Rect image.Rectangle
-	Cols int
-	Rows int
+	Rect  image.Rectangle
+	Cols  int
+	Rows  int
+	SrcId int
 }
 
 type ObjectGroup struct {
@@ -124,6 +189,12 @@ type ObjectGroup struct {
 }
 
 func (o *ObjectGroup) Less(i, j int) bool {
+	id1 := o.Objects[i].SrcId
+	id2 := o.Objects[j].SrcId
+	if id1 != id2 {
+		return id1 < id2
+	}
+
 	y1 := o.Objects[i].Rect.Min.Y
 	y2 := o.Objects[j].Rect.Min.Y
 
@@ -151,15 +222,35 @@ func (o *ObjectGroup) Sort() {
 	sort.Sort(o)
 }
 
-func (o *ObjectGroup) GenerateImage(src gocv.Mat, tileSize, dstWidth int, prefix string) {
+func GetColor(w, h int) color.RGBA {
+	c := color.RGBA{
+		R: uint8((w * 100) % 256),
+		G: uint8((h * 100) % 256),
+		A: 255,
+	}
+	bi := c.A/10*3 + c.B/5*3
+	b := (128 - int(bi)) * 10
+	if b > 255 {
+		b = 255
+	}
+	if b < 0 {
+		b = 0
+	}
+	c.B = uint8(b)
+	return c
+}
+
+func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tileSize, dstWidth int, prefix string) {
 	objectCols := dstWidth / o.Cols / tileSize
-	objectRows := o.Len()/objectCols + 1
+	objectRows := ceil(float64(o.Len()) / float64(objectCols))
 	dstHeight := objectRows * o.Rows * tileSize
-	dst := gocv.NewMatWithSize(dstHeight, dstWidth, src.Type())
+	dst := gocv.NewMatWithSize(dstHeight, dstWidth, src[0].Type())
 
 	rect0 := image.Rect(0, 0, o.Cols*tileSize, o.Rows*tileSize)
 
-	srcroi := image.Rect(0, 0, src.Cols(), src.Rows())
+	drawPadding := image.Pt(tileSize/10+1, tileSize/10+1)
+	label := fmt.Sprintf("%dx%d", o.Cols, o.Rows)
+	drawColor := GetColor(o.Cols, o.Rows)
 
 	for i, v := range o.Objects {
 
@@ -171,18 +262,29 @@ func (o *ObjectGroup) GenerateImage(src gocv.Mat, tileSize, dstWidth int, prefix
 
 		dstRect := rect0.Add(image.Pt(x, y))
 
+		srcroi := image.Rect(0, 0, src[v.SrcId].Cols(), src[v.SrcId].Rows())
+
 		if !v.Rect.Intersect(srcroi).Eq(v.Rect) {
-			fmt.Println("Err", i, "/", o.Len(), src.Cols(), src.Rows(), v.Rect.Max, "|", dst.Cols(), dst.Rows(), dstRect.Max)
+			fmt.Println("Err", i, "/", o.Len(), srcroi, v.Rect.Max, "|", dst.Cols(), dst.Rows(), dstRect.Max)
 			continue
 		}
 
 		dstRegion := dst.Region(dstRect)
 
-		srcRegion := src.Region(v.Rect)
+		srcRegion := src[v.SrcId].Region(v.Rect)
+
+		rectForDraw := v.Rect
+		rectForDraw.Min = rectForDraw.Min.Add(drawPadding)
+		rectForDraw.Max = rectForDraw.Max.Sub(drawPadding)
+		//gocv.Rectangle(srcPutLabel, image.Rectangle{Min: rectForDraw.Min, Max: rectForDraw.Min.Add(image.Pt(40, 30))}, color.RGBA{A: 255}, -1)
+		gocv.Rectangle(&srcPutLabel[v.SrcId], rectForDraw, drawColor, drawPadding.X/2+1)
+
+		gocv.PutText(&srcPutLabel[v.SrcId], label, image.Pt(rectForDraw.Min.X+2, rectForDraw.Min.Y+20), gocv.FontHersheySimplex, 0.5, drawColor, 2)
+
 		srcRegion.CopyTo(&dstRegion)
 
-		//srcRegion.Close()
-		//dstRegion.Close()
+		srcRegion.Close()
+		dstRegion.Close()
 
 	}
 
@@ -191,23 +293,28 @@ func (o *ObjectGroup) GenerateImage(src gocv.Mat, tileSize, dstWidth int, prefix
 	gocv.IMWrite(name, dst)
 }
 
+var (
+	Green = color.RGBA{0, 255, 0, 255}
+)
+
 type TileSize int
 
-func (t TileSize) PixToId(pix int) int {
-	return pix / int(t)
+func (t TileSize) PixToTilePix(pix int, method roundMethod) int {
+	return method(float64(pix)/float64(t)) * int(t)
 }
 
-func (t TileSize) IdToPix(id int) int {
-	return id * int(t)
-}
-
-func (t TileSize) PixToTilePix(pix int) int {
-	return pix / int(t) * int(t)
-}
-
-func (t TileSize) PointToTilePoint(pt image.Point) image.Point {
+func (t TileSize) PointToTilePoint(pt image.Point, method roundMethod) image.Point {
 	return image.Point{
-		X: t.PixToTilePix(pt.X),
-		Y: t.PixToTilePix(pt.Y),
+		X: t.PixToTilePix(pt.X, method),
+		Y: t.PixToTilePix(pt.Y, method),
 	}
+}
+
+type roundMethod func(x float64) int
+
+func floor(x float64) int {
+	return int(math.Floor(x))
+}
+func ceil(x float64) int {
+	return int(math.Ceil(x))
 }

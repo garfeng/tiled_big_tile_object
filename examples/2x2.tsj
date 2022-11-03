@@ -1,0 +1,14 @@
+{ "columns":5,
+ "image":"dst\/objects_2x2.png",
+ "imageheight":192,
+ "imagewidth":480,
+ "margin":0,
+ "name":"2x2",
+ "spacing":0,
+ "tilecount":10,
+ "tiledversion":"1.8.4",
+ "tileheight":96,
+ "tilewidth":96,
+ "type":"tileset",
+ "version":"1.8"
+}

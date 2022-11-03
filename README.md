@@ -1,0 +1,42 @@
+#  Generate Big Objects for TileD
+
+There are some objects with size more than 1 x 1.
+
+![image-20221103214954877](README.assets/image-20221103214954877.png)
+
+
+
+Put them to a map (tile layer) separate from each other.
+
+![image-20221103220438444](README.assets/image-20221103220438444.png)
+
+
+
+Export the map as Image.
+
+![image-20221103220518063](README.assets/image-20221103220518063.png)
+
+
+
+Run this tool. It will group objects with same size to one image.
+
+| objects_1x1.png                      | objects_1x2.png                      | objects_2x2.png                      |
+| ------------------------------------ | ------------------------------------ | ------------------------------------ |
+| ![1x1](examples/dst/objects_1x1.png) | ![1x2](examples/dst/objects_1x2.png) | ![2x2](examples/dst/objects_2x2.png) |
+
+
+
+Then you could create new Tilesets in TileD with their tile size. 
+
+![image-20221103221258527](README.assets/image-20221103221258527.png)
+
+
+
+Draw your map with then.
+
+![image-20221103225551089](README.assets/image-20221103225551089.png)
+
+
+
+The examples can be found in [examples](./examples).
+
