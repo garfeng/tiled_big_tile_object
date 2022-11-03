@@ -1,6 +1,8 @@
 #  Generate Big Objects for TileD
 
-There are some objects with size more than 1 x 1.
+[中文](translations/zh_cn.md)
+
+There are some item with size more than 1 x 1. It is difficult to place them in map as `objects`.
 
 ![image-20221103214954877](README.assets/image-20221103214954877.png)
 
@@ -26,17 +28,17 @@ Run this tool. It will group objects with same size to one image.
 
 
 
-Then you could create new Tilesets in TileD with their tile size. 
+Then you could create new Tilesets in TileD with their tile size.
 
 ![image-20221103221258527](README.assets/image-20221103221258527.png)
 
 
 
-Draw your map with then.
+Draw your map with then.  [Example maps](./examples).
 
 ![image-20221103225551089](README.assets/image-20221103225551089.png)
 
 
 
-The examples can be found in [examples](./examples).
+
 
