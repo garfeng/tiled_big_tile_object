@@ -1,3 +1,6 @@
 vendor
 .idea
 *.exe
+node_modules/
+dist/
+*/build/bin/

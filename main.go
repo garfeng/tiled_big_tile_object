@@ -11,14 +11,15 @@ import (
 
 var (
 	tileSize  = flag.Int("tileSize", 48, "Size of each tile.(RMVA:32, RMMV:48)")
-	DstCols   = flag.Int("dstWidth", 480, "Width of dst image. will be tileSize x N")
+	DstWidth  = flag.Int("dstWidth", 480, "Width of dst image. will auto set to tileSize x N")
+	DstHeight = flag.Int("dstHeight", 640, "Height of dst image. will auto set to tileSize x N")
 	srcRoot   = flag.String("srcRoot", "", "src images dir")
 	dstPrefix = flag.String("dstPrefix", "dst/tiled", "prefix of output image")
 )
 
 func main() {
 	flag.Parse()
-	if srcRoot == nil || *srcRoot == "" || (*tileSize) <= 0 || (*DstCols) < *tileSize {
+	if srcRoot == nil || *srcRoot == "" || (*tileSize) <= 0 || (*DstWidth) < *tileSize || (*DstHeight) < *tileSize {
 		flag.PrintDefaults()
 		return
 	}
@@ -26,8 +27,9 @@ func main() {
 	sz := *tileSize
 
 	m := &maker.Maker{
-		TileSize: sz,
-		DstCols:  (*DstCols) / sz * sz,
+		TileSize:  sz,
+		DstWidth:  (*DstWidth) / sz * sz,
+		DstHeight: (*DstHeight) / sz * sz,
 	}
 
 	srcImages, err := scanPngs(*srcRoot)

@@ -13,8 +13,9 @@ import (
 )
 
 type Maker struct {
-	TileSize int
-	DstCols  int
+	TileSize  int
+	DstWidth  int
+	DstHeight int
 }
 
 func (m *Maker) Extend(src gocv.Mat, dst *gocv.Mat) {
@@ -138,7 +139,7 @@ func (m *Maker) Generate(srcNames []string, dstPrefix string) error {
 
 	for _, v := range groups {
 		v.Sort()
-		v.GenerateImage(srcList, labelList, m.TileSize, m.DstCols, dstPrefix)
+		v.GenerateImage(srcList, labelList, m.TileSize, m.DstWidth, m.DstHeight, dstPrefix)
 	}
 	for i, v := range labelList {
 		_, name := filepath.Split(srcNames[i])
@@ -240,11 +241,21 @@ func GetColor(w, h int) color.RGBA {
 	return c
 }
 
-func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tileSize, dstWidth int, prefix string) {
+func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tileSize, dstWidth, dstHeight int, prefix string) {
 	objectCols := dstWidth / o.Cols / tileSize
+	dstWidth = objectCols * tileSize * o.Cols
+	oneDstObjectRows := dstHeight / o.Rows / tileSize
+	dstHeight = oneDstObjectRows * tileSize * o.Rows
+
 	objectRows := ceil(float64(o.Len()) / float64(objectCols))
-	dstHeight := objectRows * o.Rows * tileSize
-	dst := gocv.NewMatWithSize(dstHeight, dstWidth, src[0].Type())
+	dstImageNumber := ceil(float64(objectRows) / float64(oneDstObjectRows))
+
+	dst := []gocv.Mat{}
+	for i := 0; i < dstImageNumber; i++ {
+		oneDst := gocv.NewMatWithSize(dstHeight, dstWidth, src[0].Type())
+		defer oneDst.Close()
+		dst = append(dst, oneDst)
+	}
 
 	rect0 := image.Rect(0, 0, o.Cols*tileSize, o.Rows*tileSize)
 
@@ -257,6 +268,9 @@ func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tile
 		xId := i % objectCols
 		yId := i / objectCols
 
+		objectImageId := yId / oneDstObjectRows
+		yId = yId % oneDstObjectRows
+
 		x := xId * tileSize * o.Cols
 		y := yId * tileSize * o.Rows
 
@@ -265,11 +279,11 @@ func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tile
 		srcroi := image.Rect(0, 0, src[v.SrcId].Cols(), src[v.SrcId].Rows())
 
 		if !v.Rect.Intersect(srcroi).Eq(v.Rect) {
-			fmt.Println("Err", i, "/", o.Len(), srcroi, v.Rect.Max, "|", dst.Cols(), dst.Rows(), dstRect.Max)
+			fmt.Println("Err", i, "/", o.Len(), srcroi, v.Rect.Max, "|", dst[objectImageId].Cols(), dst[objectImageId].Rows(), dstRect.Max)
 			continue
 		}
 
-		dstRegion := dst.Region(dstRect)
+		dstRegion := dst[objectImageId].Region(dstRect)
 
 		srcRegion := src[v.SrcId].Region(v.Rect)
 
@@ -288,9 +302,10 @@ func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tile
 
 	}
 
-	name := fmt.Sprintf("%s_%dx%d.png", prefix, o.Cols, o.Rows)
-
-	gocv.IMWrite(name, dst)
+	for i := 0; i < dstImageNumber; i++ {
+		name := fmt.Sprintf("%s_%dx%d_%d.png", prefix, o.Cols, o.Rows, i+1)
+		gocv.IMWrite(name, dst[i])
+	}
 }
 
 var (
