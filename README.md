@@ -1,4 +1,4 @@
-#  Generate Big Objects for TileD
+#  Generate Big Objects for Tiled
 
 [中文版](translations/zh_cn.md) | [Download](https://github.com/garfeng/tiled_big_tile_object/releases)
 
@@ -28,7 +28,7 @@ Run this tool. It will group objects with same size to one image.
 
 
 
-Then you could create new Tilesets in TileD with their tile size.
+Then you could create new Tilesets in Tiled with their tile size.
 
 ![image-20221103221258527](README.assets/image-20221103221258527.png)
 
