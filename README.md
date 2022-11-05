@@ -1,6 +1,6 @@
 #  Generate Big Objects for TileD
 
-[中文](translations/zh_cn.md)
+[中文版](translations/zh_cn.md) | [Download](https://github.com/garfeng/tiled_big_tile_object/releases)
 
 There are some item with size more than 1 x 1. It is difficult to place them in map as `objects`.
 
