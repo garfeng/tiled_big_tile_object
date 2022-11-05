@@ -1,8 +1,7 @@
 import {Component, useState} from 'react';
 import './App.css';
-import {Greet} from "../wailsjs/go/main/App";
-
-import {Col, Layout, Row, Input,Form, Button, InputNumber, Typography, Divider} from "antd"
+import {SelectImages, SelectDstRoot, Generate} from "../wailsjs/go/main/App";
+import {Col, Layout, Row, Input,Form, Button, InputNumber, Typography, Divider, message} from "antd"
 import { Footer } from 'antd/lib/layout/layout';
 
 import {GithubOutlined} from '@ant-design/icons';
@@ -15,19 +14,83 @@ class App extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            inputImagesStr:"",
             inputImages : [],
             tileSize : 48,
             dstWidth : 640,
             dstHeight: 640,
             dstRoot : "./dst",
             dstPrefix : "objects",
-
         }
     }
-    onFinish = (e) => {
 
+    SelectImages = (e) => {
+        SelectImages().then((images) => {
+            if(images.length > 0) {
+                this.setState({
+                    inputImages : images,
+                })
+            }
+        }).catch(
+            (reason) => {
+                // do nothing
+            }
+        )
     }
+
+    SelectDstRoot = (e) => {
+        SelectDstRoot().then((dstRoot)=>{
+            if (dstRoot.length > 0) {
+                this.setState(
+                    {
+                        dstRoot: dstRoot,
+                    }
+                )
+            }
+
+        }).catch((reason) => {
+            // do nothing
+        });
+    }
+
+    Generate = (e) => {
+        var param = {
+            tileSize: this.state.tileSize,
+            dstWidth: this.state.dstWidth,
+            dstHeight: this.state.dstHeight,
+            srcImages: this.state.inputImages,
+            dstRoot: this.state.dstRoot,
+            dstPrefix: this.state.dstPrefix,
+        };
+        console.log(param)
+        Generate(param).then( (err)=> {
+            if (err != null) {
+                message.error(err.message);
+            } else {
+                message.success("finished");
+            }
+        }  ).catch( reason => {
+            message.error(reason);
+        } )
+    }
+
+    setValue = (name) => {
+        return (value) => {
+            if (typeof value == "string" || typeof value == "number") {
+                this.setState(
+                    {
+                        [name]: value
+                    }
+                )
+            } else {
+                this.setState(
+                    {
+                        [name]: value.target.value
+                    }
+                )
+            }
+        }
+    }
+
     render() {
 
         return (
@@ -42,33 +105,40 @@ class App extends Component {
                             </Title>
                                 </Col>
                                 <Divider/>
-                            <Form name="basic" labelCol={{span:4}} wrapperCol={{span:16}} onFinish={this.onFinish}>
-                                <Form.Item label="Input images" name="inputImage">
+                            <Form name="basic" labelCol={{span:4}} wrapperCol={{span:16}}>
+
+                                <Form.Item label="Input images" name="inputImages">
                                     <Input.Group>
-                                    <Input readOnly={true} value={this.state.inputImagesStr} style={{ width: 'calc(100% - 100px)' }}/>
-                                    <Button type='primary'>Select</Button>
+                                    <Input readOnly={true} value={this.state.inputImages.join(";")} style={{ width: 'calc(100% - 100px)' }}/>
+                                    <Button type='primary' onClick={this.SelectImages}>Select</Button>
                                     </Input.Group>
                                 </Form.Item>
-                                <Form.Item label="Tile size" name="tileSize">
-                                    <InputNumber defaultValue={this.state.tileSize} value={this.state.tileSize} addonAfter={"px"}></InputNumber>
+
+                                <Form.Item label="Tile size" name="tileSize" initialValue={this.state.tileSize}>
+                                    <InputNumber onChange={this.setValue("tileSize")}  value={this.state.tileSize} addonAfter={"px"}></InputNumber >
                                 </Form.Item>
+
                                 <Form.Item label="Dst Size" name="dstSize">
                                     <Input.Group>
-                                    <InputNumber defaultValue={this.state.dstWidth} value={this.state.dstWidth} style={{width:"5rem"}}></InputNumber> {" x "}
-                                    <InputNumber defaultValue={this.state.dstWidth} value={this.state.dstHeight} style={{width:"7rem"}} addonAfter={"px"}></InputNumber>
+                                    <InputNumber onChange={this.setValue("dstWidth")} value={this.state.dstWidth} style={{width:"5rem"}}></InputNumber> {" x "}
+                                    <InputNumber onChange={this.setValue("dstHeight")} value={this.state.dstHeight} style={{width:"7rem"}} addonAfter={"px"}></InputNumber>
+                                    <span>{" "}Will auto set to <code>TileSize x N</code></span>
                                     </Input.Group>
                                 </Form.Item>
+
                                 <Form.Item label="Dst root" name="dstRoot">
                                     <Input.Group compact>
                                     <Input value={this.state.dstRoot} readOnly={true} style={{ width: 'calc(100% - 100px)' }}></Input>
-                                    <Button type='primary'>Select</Button>
+                                    <Button type='primary' onClick={this.SelectDstRoot}>Select</Button>
                                     </Input.Group>
                                 </Form.Item>
-                                <Form.Item label="Dst prefix" name="dstPrefix">
-                                    <Input defaultValue={this.state.dstPrefix} value={this.state.dstPrefix} style={{ width: 'calc(100% - 100px)' }}></Input>
+
+                                <Form.Item label="Dst prefix" name="dstPrefix" initialValue={this.state.dstPrefix}>
+                                    <Input onChange={this.setValue("dstPrefix")} value={this.state.dstPrefix} style={{ width: 'calc(100% - 100px)' }}></Input>
                                 </Form.Item>
+
                                 <Form.Item label="Generate">
-                                    <Button type='primary'>Generate</Button>
+                                    <Button type='primary' onClick={this.Generate}>Generate</Button>
                                 </Form.Item>
                             </Form>
                     </Col>

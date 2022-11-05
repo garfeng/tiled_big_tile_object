@@ -242,10 +242,14 @@ func GetColor(w, h int) color.RGBA {
 }
 
 func (o *ObjectGroup) GenerateImage(src []gocv.Mat, srcPutLabel []gocv.Mat, tileSize, dstWidth, dstHeight int, prefix string) {
-	objectCols := dstWidth / o.Cols / tileSize
-	dstWidth = objectCols * tileSize * o.Cols
-	oneDstObjectRows := dstHeight / o.Rows / tileSize
-	dstHeight = oneDstObjectRows * tileSize * o.Rows
+	objectWidth := o.Cols * tileSize
+	objectHeight := o.Rows * tileSize
+
+	objectCols := dstWidth / objectWidth
+	dstWidth = objectCols * objectWidth
+
+	oneDstObjectRows := dstHeight / objectHeight
+	dstHeight = oneDstObjectRows * objectHeight
 
 	objectRows := ceil(float64(o.Len()) / float64(objectCols))
 	dstImageNumber := ceil(float64(objectRows) / float64(oneDstObjectRows))

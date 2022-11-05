@@ -2,7 +2,10 @@ module github.com/garfeng/tiled_big_tile_object/gui
 
 go 1.18
 
-require github.com/wailsapp/wails/v2 v2.1.0
+require (
+	github.com/garfeng/tiled_big_tile_object v0.0.0-20221105025157-e97c1a3e60eb
+	github.com/wailsapp/wails/v2 v2.0.0-beta.38
+)
 
 require (
 	github.com/bep/debounce v1.2.1 // indirect
@@ -23,6 +26,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
+	gocv.io/x/gocv v0.31.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
